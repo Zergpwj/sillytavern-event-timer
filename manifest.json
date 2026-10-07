@@ -1,0 +1,16 @@
+{
+    "display_name": "事件计时器 (Event Timer)",
+    "loading_order": 60,
+    "requires": [],
+    "optional": [],
+    "dependencies": [],
+    "js": "index.js",
+    "css": "style.css",
+    "author": "Zergpwj",
+    "version": "0.20.1",
+    "homePage": "https://github.com/Zergpwj",
+    "minimum_client_version": "1.12.0",
+    "i18n": {
+        "en": "i18n/en.json"
+    }
+}

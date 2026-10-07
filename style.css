@@ -1,0 +1,1252 @@
+/* ==========================================================================
+   事件计时器 (Event Timer) —— 样式
+   全部选择器都带 .st-timer 前缀，避免污染酒馆和其它扩展的样式。
+   颜色优先使用酒馆的主题变量，取不到时回落到自带配色。
+   ========================================================================== */
+
+#st-timer-root {
+    --stt-bg: var(--white30a, rgba(28, 28, 34, 0.94));
+    --stt-bg-solid: var(--SmartThemeBlurTintColor, #23232b);
+    --stt-fg: var(--SmartThemeBodyColor, #e8e8ee);
+    --stt-muted: var(--SmartThemeQuoteColor, #9a9aa8);
+    --stt-border: var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.12));
+    --stt-accent: var(--SmartThemeQuoteColor, #7fb2ff);
+    --stt-primary: #4a86e8;
+    --stt-warn: #e8a33d;
+    --stt-danger: #e05c5c;
+    --stt-good: #4fbf7b;
+
+    position: fixed;
+    z-index: 30000;
+    transform: translate(-50%, -50%);
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--stt-fg);
+    pointer-events: none;
+    font-family: inherit;
+}
+
+#st-timer-root.st-timer--hidden {
+    display: none;
+}
+
+#st-timer-root > * {
+    pointer-events: auto;
+}
+
+#st-timer-root[data-theme="light"] {
+    --stt-bg: rgba(252, 252, 254, 0.97);
+    --stt-bg-solid: #ffffff;
+    --stt-fg: #23232b;
+    --stt-muted: #6b6b7a;
+    --stt-border: rgba(0, 0, 0, 0.12);
+}
+
+#st-timer-root[data-theme="dark"] {
+    --stt-bg: rgba(24, 24, 30, 0.97);
+    --stt-bg-solid: #1b1b22;
+    --stt-fg: #e8e8ee;
+    --stt-muted: #9a9aa8;
+    --stt-border: rgba(255, 255, 255, 0.14);
+}
+
+/* ───────────────────────── 悬浮按钮 ───────────────────────── */
+
+.st-timer-fab {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px 7px 10px;
+    border-radius: 22px;
+    border: 1px solid var(--stt-border);
+    background: var(--stt-bg);
+    color: var(--stt-fg);
+    cursor: grab;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.32);
+    backdrop-filter: blur(8px);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    user-select: none;
+    white-space: nowrap;
+    font-size: 13px;
+    font-family: inherit;
+}
+
+.st-timer-fab:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+
+.st-timer-fab.is-dragging {
+    cursor: grabbing;
+    transform: scale(1.02);
+}
+
+.st-timer-fab.is-disabled {
+    opacity: 0.55;
+    filter: grayscale(0.6);
+}
+
+.st-timer-fab.has-due {
+    border-color: var(--stt-warn);
+    box-shadow: 0 0 0 2px rgba(232, 163, 61, 0.28), 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.st-timer-fab.is-flashing {
+    animation: st-timer-pulse 1.1s ease-in-out 3;
+}
+
+@keyframes st-timer-pulse {
+
+    0%,
+    100% {
+        box-shadow: 0 0 0 0 rgba(232, 163, 61, 0);
+    }
+
+    50% {
+        box-shadow: 0 0 0 8px rgba(232, 163, 61, 0.35);
+    }
+}
+
+.st-timer-fab__icon {
+    font-size: 15px;
+    line-height: 1;
+}
+
+.st-timer-fab__body {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    line-height: 1.15;
+}
+
+.st-timer-fab__clock {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.st-timer-fab__sub {
+    font-size: 10.5px;
+    color: var(--stt-muted);
+}
+
+.st-timer-fab__badge {
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    background: var(--stt-primary);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.st-timer-fab__badge.is-due {
+    background: var(--stt-warn);
+    color: #241b06;
+}
+
+.st-timer-fab__badge[hidden] {
+    display: none;
+}
+
+/* ───────────────────────── 面板 ───────────────────────── */
+
+.st-timer-panel {
+    position: absolute;
+    top: 46px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(400px, 92vw);
+    max-height: min(70vh, 620px);
+    overflow-y: auto;
+    padding: 12px;
+    border-radius: 14px;
+    border: 1px solid var(--stt-border);
+    background: var(--stt-bg-solid);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(10px);
+}
+
+.st-timer-panel[hidden] {
+    display: none;
+}
+
+.st-timer-panel__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.st-timer-panel__title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 700;
+    font-size: 14px;
+}
+
+.st-timer-panel__actions {
+    display: flex;
+    gap: 4px;
+}
+
+/* ───────────────────────── 时钟区 ───────────────────────── */
+
+.st-timer-clock {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 9px 11px;
+    border-radius: 10px;
+    background: rgba(127, 178, 255, 0.09);
+    border: 1px solid var(--stt-border);
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+}
+
+.st-timer-clock__value {
+    font-size: 19px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.4px;
+}
+
+.st-timer-clock__meta {
+    font-size: 11px;
+    color: var(--stt-muted);
+    width: 100%;
+}
+
+/* ───────────────────────── 到期区 ───────────────────────── */
+
+.st-timer-due {
+    margin-bottom: 10px;
+}
+
+.st-timer-due__empty {
+    font-size: 11.5px;
+    color: var(--stt-muted);
+    padding: 2px 0 6px;
+}
+
+.st-timer-due__title {
+    font-weight: 700;
+    color: var(--stt-warn);
+    font-size: 12.5px;
+}
+
+.st-timer-due__hint {
+    font-size: 11px;
+    color: var(--stt-muted);
+    margin-bottom: 5px;
+}
+
+.st-timer-due__item {
+    font-size: 12px;
+    padding: 3px 8px;
+    margin-bottom: 3px;
+    border-left: 3px solid var(--stt-warn);
+    background: rgba(232, 163, 61, 0.1);
+    border-radius: 0 6px 6px 0;
+}
+
+.st-timer-due__actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 5px;
+}
+
+/* ───────────────────────── 事件卡片 ───────────────────────── */
+
+.st-timer-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.st-timer-card {
+    border: 1px solid var(--stt-border);
+    border-radius: 10px;
+    padding: 9px 10px;
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.st-timer-card.is-due {
+    border-color: var(--stt-warn);
+    background: rgba(232, 163, 61, 0.1);
+}
+
+.st-timer-card__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.st-timer-card__title {
+    font-weight: 700;
+    font-size: 13px;
+    word-break: break-word;
+}
+
+.st-timer-card__status {
+    flex: none;
+    font-size: 10.5px;
+    padding: 1px 7px;
+    border-radius: 8px;
+    background: rgba(127, 178, 255, 0.18);
+    color: var(--stt-accent);
+}
+
+.st-timer-card.is-due .st-timer-card__status {
+    background: rgba(232, 163, 61, 0.22);
+    color: var(--stt-warn);
+}
+
+.st-timer-card__timer {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.st-timer-card__countdown {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--stt-good);
+}
+
+.st-timer-card.is-due .st-timer-card__countdown {
+    color: var(--stt-danger);
+}
+
+.st-timer-card__due {
+    font-size: 11px;
+    color: var(--stt-muted);
+}
+
+/* 时长摘要：主显示「剩余 / 共」 */
+.st-timer-card__duration {
+    font-size: 11.5px;
+    color: var(--stt-text);
+    opacity: 0.85;
+    margin-top: 2px;
+}
+
+/* 被顺延过才出现：「原定 → 现」 */
+.st-timer-card__adjust {
+    font-size: 11px;
+    color: var(--stt-warn, #e0a13a);
+    margin-top: 2px;
+}
+
+.st-timer-progress {
+    position: relative;
+    height: 14px;
+    margin: 6px 0 4px;
+    border-radius: 7px;
+    background: rgba(127, 178, 255, 0.14);
+    overflow: hidden;
+}
+
+.st-timer-progress__bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--stt-primary), #7fb2ff);
+    transition: width 0.35s ease;
+}
+
+.st-timer-card.is-due .st-timer-progress__bar {
+    background: linear-gradient(90deg, var(--stt-warn), var(--stt-danger));
+}
+
+.st-timer-progress__label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.st-timer-card__fields {
+    margin: 6px 0 0;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 2px 8px;
+    font-size: 11.5px;
+}
+
+.st-timer-card__label {
+    color: var(--stt-muted);
+    white-space: nowrap;
+}
+
+.st-timer-card__label.is-reward {
+    color: var(--stt-good);
+}
+
+.st-timer-card__label.is-risk {
+    color: var(--stt-warn);
+}
+
+.st-timer-card__label.is-loss {
+    color: var(--stt-danger);
+}
+
+.st-timer-card__value {
+    margin: 0;
+    word-break: break-word;
+}
+
+.st-timer-card__value.is-note {
+    color: var(--stt-muted);
+}
+
+.st-timer-card__tag {
+    display: inline-block;
+    margin-top: 5px;
+    font-size: 10px;
+    padding: 0 6px;
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--stt-muted);
+}
+
+.st-timer-card__actions {
+    display: flex;
+    gap: 5px;
+    margin-top: 7px;
+}
+
+.st-timer-empty {
+    font-size: 12px;
+    color: var(--stt-muted);
+    padding: 8px 2px;
+}
+
+.st-timer-finished {
+    margin-top: 6px;
+    font-size: 11.5px;
+}
+
+.st-timer-finished__item {
+    display: flex;
+    gap: 6px;
+    padding: 2px 0;
+    color: var(--stt-muted);
+}
+
+.st-timer-finished__title {
+    flex: none;
+    color: var(--stt-fg);
+}
+
+/* ───────────────────────── 注入预览 ───────────────────────── */
+
+.st-timer-preview {
+    margin-top: 10px;
+    font-size: 11.5px;
+}
+
+.st-timer-preview summary {
+    cursor: pointer;
+    color: var(--stt-muted);
+}
+
+.st-timer-preview__body {
+    margin: 6px 0 0;
+    padding: 8px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.22);
+    border: 1px solid var(--stt-border);
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-size: 11px;
+    max-height: 220px;
+    overflow: auto;
+    font-family: ui-monospace, Consolas, monospace;
+}
+
+#st-timer-root[data-theme="light"] .st-timer-preview__body {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+/* 「下一轮将会注入」/「上一轮实际注入过」两个小标题 */
+.st-timer-preview__label {
+    margin: 8px 0 0;
+    font-size: 10.5px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--stt-muted);
+    opacity: 0.85;
+}
+
+/* 注入记录那一栏给个左边框，一眼看出是「已经发出去的东西」 */
+.st-timer-preview__label--last {
+    color: var(--stt-accent, #7fb2ff);
+    opacity: 1;
+}
+
+.st-timer-preview__body--last {
+    border-left: 3px solid var(--stt-accent, #7fb2ff);
+}
+
+/* ───────────────────────── 按钮 ───────────────────────── */
+
+.st-timer-btn {
+    padding: 4px 10px;
+    border-radius: 7px;
+    border: 1px solid var(--stt-border);
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--stt-fg);
+    cursor: pointer;
+    font-size: 11.5px;
+    font-family: inherit;
+    transition: background 0.14s ease, border-color 0.14s ease;
+    white-space: nowrap;
+}
+
+.st-timer-btn:hover {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: var(--stt-accent);
+}
+
+.st-timer-btn--primary {
+    background: var(--stt-primary);
+    border-color: var(--stt-primary);
+    color: #fff;
+}
+
+.st-timer-btn--primary:hover {
+    background: #5c93ec;
+}
+
+.st-timer-btn--ghost {
+    border-color: transparent;
+    background: transparent;
+    padding: 4px 7px;
+}
+
+.st-timer-btn--tiny {
+    font-size: 10.5px;
+    padding: 2px 7px;
+}
+
+.st-timer-panel__foot {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid var(--stt-border);
+}
+
+/* ───────────────────────── 弹窗 ───────────────────────── */
+
+.st-timer-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 30010;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+
+.st-timer-modal__box {
+    width: min(460px, 94vw);
+    max-height: 88vh;
+    display: flex;
+    flex-direction: column;
+    border-radius: 14px;
+    border: 1px solid var(--stt-border, rgba(255, 255, 255, 0.14));
+    background: var(--SmartThemeBlurTintColor, #23232b);
+    color: var(--SmartThemeBodyColor, #e8e8ee);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+    font-size: 13px;
+}
+
+.st-timer-modal__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 11px 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    font-weight: 700;
+}
+
+.st-timer-modal__body {
+    padding: 12px 14px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/*
+ * ⚠️ 弹窗内容区是**竖向 flex**，子项默认 `flex-shrink: 1`。
+ *
+ * 平时装不下会去滚动，是因为 `min-height: auto` 会兜住「内容最小高度」；
+ * 但 textarea / pre 这类元素的 `overflow` 不是 `visible`，
+ * 按 Flexbox 规范它们的自动最小尺寸**直接算 0** —— 等于没有下限。
+ *
+ * 结果就是：内容比弹窗高的时候，几个文本域不去撑高滚动条，
+ * 而是自己被压成一条细缝（协议那个框和底部预览框都中招了），
+ * 而且拖右下角拉高也没用 —— 拉出来的高度当场又被 flex 收走。
+ *
+ * 让子项不参与收缩，高度按各自 rows / 内容来，溢出交给上面的 overflow-y。
+ */
+.st-timer-modal__body > * {
+    flex: 0 0 auto;
+}
+
+.st-timer-modal__foot {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 11px 14px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.st-timer-modal__status {
+    padding: 8px 14px;
+    font-size: 11.5px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    border-top: 1px dashed rgba(255, 255, 255, 0.14);
+    color: var(--SmartThemeQuoteColor, #9a9aa8);
+}
+
+.st-timer-modal__status[hidden] {
+    display: none;
+}
+
+.st-timer-modal__status[data-kind="success"] {
+    color: #7fd6a2;
+}
+
+.st-timer-modal__status[data-kind="warning"] {
+    color: #e8a33d;
+}
+
+.st-timer-modal__status[data-kind="error"] {
+    color: #e05c5c;
+}
+
+.st-timer-modal.is-busy {
+    cursor: progress;
+}
+
+.st-timer-modal.is-busy .st-timer-modal__box {
+    opacity: 0.85;
+}
+
+/* 月名编辑器 */
+
+.st-timer-monthgrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 6px;
+    max-height: 240px;
+    overflow-y: auto;
+    padding: 2px;
+    margin-bottom: 10px;
+}
+
+.st-timer-monthgrid__cell {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.st-timer-monthgrid__idx {
+    font-size: 10.5px;
+    opacity: 0.7;
+}
+
+.st-timer-monthgrid .st-timer-input {
+    min-width: 0;
+    max-width: none;
+    width: 100%;
+}
+
+/* 勾选项网格 */
+
+.st-timer-sources {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 16px;
+    margin-bottom: 6px;
+}
+
+.st-timer-settings__subsection {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px 10px;
+    margin: 6px 0;
+    border-radius: 8px;
+    border: 1px dashed var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.16));
+}
+
+.st-timer-btn--danger:hover {
+    border-color: #e05c5c;
+    color: #e05c5c;
+}
+
+.st-timer-field {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.st-timer-field__label {
+    font-size: 11.5px;
+    color: var(--SmartThemeQuoteColor, #9a9aa8);
+}
+
+.st-timer-field__hint {
+    font-size: 10.5px;
+    color: var(--SmartThemeQuoteColor, #82828f);
+}
+
+/* ───────────────────────── 设置面板 ───────────────────────── */
+
+.st-timer-settings__head {
+    cursor: pointer;
+    user-select: none;
+}
+
+.st-timer-settings.is-highlight {
+    animation: st-timer-highlight 1.6s ease-out;
+}
+
+@keyframes st-timer-highlight {
+    0% {
+        box-shadow: 0 0 0 3px rgba(122, 178, 255, 0.6);
+    }
+
+    100% {
+        box-shadow: 0 0 0 3px rgba(122, 178, 255, 0);
+    }
+}
+
+.st-timer-settings__body {
+    padding: 8px 0 4px;
+}
+
+.st-timer-settings__section {
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px dashed var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.14));
+}
+
+.st-timer-settings__section:last-child {
+    border-bottom: none;
+}
+
+.st-timer-settings__section-title {
+    font-weight: 700;
+    font-size: 12.5px;
+    margin-bottom: 6px;
+    opacity: 0.9;
+}
+
+.st-timer-settings__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 6px;
+}
+
+.st-timer-settings__label {
+    font-size: 12px;
+    flex: 1;
+    min-width: 0;
+}
+
+.st-timer-settings__control {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.st-timer-settings__check {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    margin-bottom: 5px;
+    cursor: pointer;
+}
+
+.st-timer-settings__hint {
+    font-size: 11px;
+    opacity: 0.7;
+    margin: 3px 0 6px;
+    line-height: 1.45;
+}
+
+/* 提示词编辑器里每个时点一块 */
+.st-timer-point-editor {
+    margin: 10px 0 14px;
+    padding: 8px 10px;
+    border-left: 3px solid rgba(127, 178, 255, 0.45);
+    background: rgba(127, 178, 255, 0.05);
+    border-radius: 0 6px 6px 0;
+}
+
+.st-timer-point-editor textarea {
+    width: 100%;
+    box-sizing: border-box;
+    font-family: inherit;
+    font-size: 12px;
+}
+
+.st-timer-settings__value {
+    font-size: 12px;
+    opacity: 0.85;
+    font-variant-numeric: tabular-nums;
+}
+
+.st-timer-settings__buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 8px 0;
+}
+
+.st-timer-settings__unitrow {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+}
+
+.st-timer-settings__details {
+    font-size: 12px;
+    margin-top: 4px;
+}
+
+.st-timer-settings__details summary {
+    cursor: pointer;
+    opacity: 0.8;
+}
+
+.st-timer-input {
+    min-width: 120px;
+    max-width: 260px;
+    padding: 3px 7px;
+    border-radius: 6px;
+    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.16));
+    background: var(--black30a, rgba(0, 0, 0, 0.28));
+    color: inherit;
+    font-size: 12px;
+    font-family: inherit;
+}
+
+.st-timer-input--num {
+    min-width: 70px;
+    max-width: 90px;
+}
+
+textarea.st-timer-input {
+    width: 100%;
+    max-width: none;
+    font-family: ui-monospace, Consolas, monospace;
+    line-height: 1.45;
+}
+
+.st-timer-modal .st-timer-input {
+    width: 100%;
+    max-width: none;
+}
+
+/* ───────────────────────── Toast ───────────────────────── */
+
+.st-timer-toasts {
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    z-index: 30020;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+}
+
+.st-timer-toast {
+    padding: 9px 13px;
+    border-radius: 9px;
+    background: var(--SmartThemeBlurTintColor, #23232b);
+    color: var(--SmartThemeBodyColor, #e8e8ee);
+    border-left: 4px solid #7fb2ff;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+    font-size: 12.5px;
+    max-width: 320px;
+    animation: st-timer-toast-in 0.22s ease;
+}
+
+.st-timer-toast--success {
+    border-left-color: #4fbf7b;
+}
+
+.st-timer-toast--warning {
+    border-left-color: #e8a33d;
+}
+
+.st-timer-toast--error {
+    border-left-color: #e05c5c;
+}
+
+.st-timer-toast.is-leaving {
+    opacity: 0;
+    transform: translateX(12px);
+    transition: opacity 0.28s ease, transform 0.28s ease;
+}
+
+@keyframes st-timer-toast-in {
+    from {
+        opacity: 0;
+        transform: translateX(16px);
+    }
+
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+/* ───────────────────────── 窄屏适配 ───────────────────────── */
+
+@media (max-width: 600px) {
+    .st-timer-panel {
+        width: min(340px, 94vw);
+        max-height: 64vh;
+    }
+
+    .st-timer-fab__sub {
+        display: none;
+    }
+}
+
+/* ───────── 聊天记录里的注入块（发给模型的 / 模型发出来的） ───────── */
+/*
+ * 和模型的思考块一个道理，对称的两半：
+ *   用户消息 → 折叠显示「发给模型的东西」（注入进提示词的提醒）
+ *   AI 消息  → 折叠显示「模型发出来的东西」（它写的 <timer> 区块）
+ *
+ * 标签区块平时被酒馆正则从显示里藏掉了 —— 藏起来是为了不碍眼，
+ * 折叠起来是为了随时能查。
+ */
+
+.st-timer-mes-block {
+    margin: 6px 0 0;
+    border: 1px solid rgba(127, 178, 255, 0.22);
+    border-radius: 7px;
+    background: rgba(127, 178, 255, 0.055);
+    font-size: 11.5px;
+    text-align: left;
+}
+
+/* 发给模型的（输入）与模型发出来的（输出）用不同色调区分 */
+.st-timer-mes-block[data-kind='injection'] {
+    border-color: rgba(127, 178, 255, 0.3);
+    background: rgba(127, 178, 255, 0.07);
+}
+
+.st-timer-mes-block[data-kind='tag'] {
+    border-color: rgba(74, 222, 128, 0.28);
+    background: rgba(74, 222, 128, 0.05);
+}
+
+.st-timer-mes-block > summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 2px 8px;
+    color: var(--stt-muted, #9aa4b2);
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.st-timer-mes-block[data-kind='tag'] > summary {
+    color: rgba(74, 222, 128, 0.9);
+}
+
+.st-timer-mes-block > summary::-webkit-details-marker {
+    display: none;
+}
+
+.st-timer-mes-block > summary::before {
+    content: '▸';
+    font-size: 9px;
+    opacity: 0.7;
+    transition: transform 0.15s ease;
+}
+
+.st-timer-mes-block[open] > summary::before {
+    transform: rotate(90deg);
+}
+
+.st-timer-mes-block__body {
+    margin: 0;
+    padding: 6px 8px 8px;
+    border-top: 1px solid rgba(127, 178, 255, 0.15);
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-size: 11px;
+    max-height: 260px;
+    overflow: auto;
+    font-family: ui-monospace, Consolas, monospace;
+    opacity: 0.92;
+}
+
+.st-timer-mes-block[data-kind='tag'] .st-timer-mes-block__body {
+    border-top-color: rgba(74, 222, 128, 0.15);
+}
+
+/* ───────────── 提示词编辑器里的实时预览 ───────────── */
+.st-timer-prompt-preview {
+    margin: 6px 0 0;
+    padding: 8px 10px;
+    border: 1px solid rgba(127, 178, 255, 0.2);
+    border-radius: 7px;
+    background: rgba(127, 178, 255, 0.05);
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-size: 11.5px;
+    max-height: min(420px, 46vh);
+    overflow: auto;
+    font-family: ui-monospace, Consolas, monospace;
+    opacity: 0.94;
+}
+
+/* ───────────── 事件卡片上的「提醒时刻表」 ───────────── */
+.st-timer-card__schedule {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    margin: 4px 0 2px;
+    font-size: 10.5px;
+    line-height: 1.5;
+    opacity: 0.9;
+}
+
+.st-timer-card__slot {
+    white-space: nowrap;
+    opacity: 0.85;
+}
+
+/* 已经过去的那一刻 → 淡化，但不隐藏（"提醒过几次"本身就是信息） */
+.st-timer-card__slot.is-past {
+    opacity: 0.42;
+}
+
+/* 真的发过提醒的 → 打勾并加一点颜色 */
+.st-timer-card__slot.is-fired {
+    color: rgba(74, 222, 128, 0.92);
+    opacity: 0.75;
+}
+
+/* ───────────── 设置分节（现在全部可折叠，默认只开「总开关」） ───────────── */
+/*
+ * ⚠️ 折叠状态记在 SettingsUI._openSections 里，不是靠 <details> 自己的 open —— 
+ * render() 每次状态变化都会重建整个 body，不记的话在里面改一个设置它当场就合上了。
+ */
+
+.st-timer-settings__section,
+.st-timer-settings__group {
+    margin-bottom: 8px;
+    border-bottom: 1px dashed var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.14));
+    padding-bottom: 6px;
+}
+
+.st-timer-settings__section:last-child,
+.st-timer-settings__group:last-child {
+    border-bottom: none;
+}
+
+/*
+ * 分节标题：**只有可折叠的 summary** 才表现得可点。
+ *
+ * ⚠️ 这几条必须限定在 `summary.` 上。
+ *
+ * 同一个类名在弹窗里还当**普通小标题**用（`h('div.st-timer-settings__section-title', '① 线索来源')`
+ * 之类，见 editors.js 里的月名 / 日期格式 / 提示词 / 推断向导四个弹窗）。那些 div 根本
+ * 不能折叠，但样式不限定标签的话，它们会一起继承 `cursor: pointer` 和左边那个 ▸ ——
+ * 鼠标移上去变成"能点开"的手型、还多了个三角，点下去却什么也不发生。
+ */
+summary.st-timer-settings__section-title,
+summary.st-timer-settings__group-title {
+    cursor: pointer;
+    user-select: none;
+    font-weight: 700;
+    font-size: 12.5px;
+    margin-bottom: 0;
+    padding: 3px 0;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+summary.st-timer-settings__section-title::-webkit-details-marker,
+summary.st-timer-settings__group-title::-webkit-details-marker {
+    display: none;
+}
+
+summary.st-timer-settings__section-title::before,
+summary.st-timer-settings__group-title::before {
+    content: '▸';
+    font-size: 9px;
+    opacity: 0.65;
+    transition: transform 0.15s ease;
+}
+
+details[open] > summary.st-timer-settings__section-title::before,
+details[open] > summary.st-timer-settings__group-title::before {
+    transform: rotate(90deg);
+}
+
+/* 弹窗里当普通小标题用的那一个：就是一行粗体字，明确不可点、没有三角 */
+div.st-timer-settings__section-title {
+    cursor: default;
+    user-select: auto;
+}
+
+.st-timer-settings__body-inner {
+    padding: 6px 0 2px 12px;
+}
+
+/* 「高级」这一层稍微区分一下 */
+.st-timer-settings__group-title {
+    font-size: 13px;
+    color: var(--SmartThemeQuoteColor, #9a9aa8);
+}
+
+/* ───────────── 弹窗里的按钮行 ───────────── */
+/*
+ * 以前弹窗里的按钮容器直接借用了浮动面板的 .st-timer-due__actions。
+ * 那是「到期区」的类，语义不对 —— 两边一旦有一方要改样式就会互相牵连。
+ */
+.st-timer-modal__actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 5px;
+}
+
+/* ───────────── 设置面板渲染失败时的错误块 ───────────── */
+/*
+ * 以前 render() 抛错只在控制台留一行，界面上是个空白面板，
+ * 看起来就像「整个扩展被关掉了」。现在把错误直接摆出来。
+ */
+.st-timer-settings__error {
+    margin: 4px 0 10px;
+    padding: 8px 10px;
+    border: 1px solid var(--SmartThemeQuoteColor, #c0392b);
+    border-left-width: 4px;
+    border-radius: 6px;
+    background: rgba(192, 57, 43, 0.12);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.st-timer-settings__error-msg {
+    margin-top: 4px;
+    font-family: var(--monoFontFamily, monospace);
+    word-break: break-word;
+}
+
+.st-timer-settings__error-stack {
+    margin: 6px 0 0;
+    max-height: 180px;
+    overflow: auto;
+    white-space: pre-wrap;
+    font-size: 11px;
+    opacity: 0.85;
+}
+
+/* ───────────── 日期格式编辑器（弹窗） ───────────── */
+/*
+ * 以前模板输入框 + 四行占位符说明全摊在设置面板上。现在搬进弹窗，
+ * 面板上只剩「格式预览」一行。
+ */
+
+.st-timer-datefmt__preview {
+    padding: 6px 10px;
+    border-radius: 6px;
+    background: var(--black50a, rgba(0, 0, 0, 0.25));
+    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.14));
+    font-family: var(--monoFontFamily, monospace);
+    font-size: 14px;
+    word-break: break-word;
+}
+
+.st-timer-datefmt__warn {
+    margin: 4px 0;
+    color: var(--SmartThemeQuoteColor, #e0a030);
+    font-size: 12px;
+}
+
+/* ⚠️ 必须显式写死 —— 上面没有设 display 也一样，防止以后有人给它加 display 把 [hidden] 顶掉 */
+.st-timer-datefmt__warn[hidden] {
+    display: none !important;
+}
+
+.st-timer-datefmt__group {
+    margin: 8px 0 4px;
+}
+
+.st-timer-datefmt__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+.st-timer-datefmt__chip {
+    font-family: var(--monoFontFamily, monospace);
+}
+
+/* ───────────── 门槛 / 百分比：数字 + 单位 ───────────── */
+
+.st-timer-threshold {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+/* 数字窄一点，单位选择器按内容宽 */
+.st-timer-threshold .st-timer-input--num {
+    width: 68px;
+    text-align: right;
+}
+
+.st-timer-threshold select {
+    width: auto;
+    min-width: 62px;
+}
+
+.st-timer-threshold__suffix {
+    opacity: 0.75;
+    font-size: 12.5px;
+}
+
+/* 提示词库那个下拉：贴左边，不跟标签挤在一行 */
+.st-timer-settings__row--left {
+    justify-content: flex-start;
+}

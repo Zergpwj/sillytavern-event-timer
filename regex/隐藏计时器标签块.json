@@ -1,0 +1,19 @@
+[
+    {
+        "id": "a1f0c4e2-0000-4000-8000-000000000001",
+        "scriptName": "事件计时器：隐藏标签块（显示 + 提示词）",
+        "findRegex": "/\\s*<(?:timer|计时器|story_timer|storytimer|STIMER)>[\\s\\S]*?<\\/(?:timer|计时器|story_timer|storytimer|STIMER)>\\s*/gi",
+        "replaceString": "\n",
+        "trimStrings": [],
+        "placement": [
+            2
+        ],
+        "disabled": false,
+        "markdownOnly": true,
+        "promptOnly": true,
+        "runOnEdit": true,
+        "substituteRegex": 0,
+        "minDepth": null,
+        "maxDepth": null
+    }
+]
