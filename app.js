@@ -63,6 +63,11 @@ export class TimerApp {    /**
 
         this.engine.on('change', () => this.notify());
         this.engine.on('due', (events) => this.onDue(events));
+        // 事件名有歧义（AI 写了简称，命中不止一条）时什么都不改，只提示一声 ——
+        // 改错/收错事件是不可逆的，宁可让它下次写全名。
+        this.engine.on('event-ambiguous', ({ key, titles }) => {
+            this.host?.toast?.(`事件名「${key}」有歧义，没有改动任何事件。请写全名：${titles.join(' / ')}`, 'warning');
+        });
     }
 
     // ───────────────────────────── 生命周期 ─────────────────────────────

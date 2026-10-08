@@ -7,7 +7,7 @@
     "js": "index.js",
     "css": "style.css",
     "author": "Zergpwj",
-    "version": "0.21.1",
+    "version": "0.21.2",
     "homePage": "https://github.com/Zergpwj",
     "auto_update": true,
     "minimum_client_version": "1.12.0",

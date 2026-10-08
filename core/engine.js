@@ -674,7 +674,21 @@ export class TimerEngine {
         return ev;
     }
 
-    /** 按 id 或标题找事件；默认优先找「进行中」的 */
+    /**
+     * 按 id 或标题找事件；默认优先找「进行中」的。
+     *
+     * ⚠️ 子串那一层**只在唯一命中时**才算数。
+     *
+     * 它本来是给「AI 写简称」用的（提醒里印的是全名，它可能只写其中一段），
+     * 但以前写成 `find(...)` —— 命中多个时**挑数组里第一个**。实测：登记了
+     * 《静养疗伤》和《提莉的静养疗伤》，AI 发「事件-: 疗伤」，被收掉的是
+     * 《静养疗伤》，而它想说的很可能是另一条。
+     *
+     * 改错 / 收错事件是**不可逆**的（结果会写进正文、倒计时直接结束），
+     * 所以宁可什么都不改：命中 2 条及以上就不猜，交给下面的精确兜底；
+     * 还是没有 → 返回 null，调用方自然什么都不做。
+     * 同时 emit 一条 'event-ambiguous'，界面会提示把名字写全。
+     */
     findEvent(idOrTitle) {
         if (!idOrTitle) return null;
         const key = String(idOrTitle).trim();
@@ -682,9 +696,22 @@ export class TimerEngine {
         if (ev) return ev;
         const normalized = normalizeTitle(key);
         const active = this.state.events.filter((e) => e.status === 'pending' || e.status === 'due');
-        ev = active.find((e) => normalizeTitle(e.title) === normalized)
-            ?? active.find((e) => normalizeTitle(e.title).includes(normalized) || normalized.includes(normalizeTitle(e.title)));
+
+        // ① 活跃事件里精确匹配 —— 无歧义
+        ev = active.find((e) => normalizeTitle(e.title) === normalized);
         if (ev) return ev;
+
+        // ② 活跃事件里双向子串匹配 —— 只在唯一命中时认
+        const loose = active.filter((e) => {
+            const t = normalizeTitle(e.title);
+            return t.includes(normalized) || normalized.includes(t);
+        });
+        if (loose.length === 1) return loose[0];
+        if (loose.length > 1) {
+            this.emit('event-ambiguous', { key, titles: loose.map((e) => e.title) });
+        }
+
+        // ③ 兜底：全部事件（含已结束）里精确匹配 —— 精确匹配永远无歧义
         const all = [...this.state.events].reverse();
         return all.find((e) => normalizeTitle(e.title) === normalized) ?? null;
     }
