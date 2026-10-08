@@ -429,12 +429,16 @@ export function openAdvanceEditor(app) {
 
     const row = (label, key, hint) => {
         const disabled = key === 'mid' && timeRuleOff;
+        const control = dayHour(key, disabled);
+        // 每行只留「标签 + 输入框」两个元素。以前这里还有第三个元素（说明文字），
+        // 而 .st-timer-settings__row 是 flex + space-between —— 说明文字一长一短，
+        // 就把输入框挤到不同的位置，四排看着完全没对齐。说明搬到 title 上（悬停可见），
+        // 既不占位又能保留信息。
+        if (hint) control.title = hint;
+        if (disabled) control.title = '已停用：你关掉了「按剧情时间」的检查间隔，定期检查现在由回合触发，提前量（分钟）对它没有意义。另外三个时点不受影响。';
         return h('div.st-timer-settings__row', [
             h('div.st-timer-settings__label', label),
-            dayHour(key, disabled),
-            h('div.st-timer-settings__hint', disabled
-                ? '已停用：你关掉了「按剧情时间」的检查间隔，定期检查现在由回合触发，提前量（分钟）对它没有意义。另外三个时点不受影响。'
-                : hint),
+            control,
         ]);
     };
 
@@ -443,7 +447,7 @@ export function openAdvanceEditor(app) {
         width: 'min(680px, 94vw)',
         build: () => [
             h('div.st-timer-settings__hint',
-                '插件是看完上一轮的正文才知道现在几点的，所以每个时点天生慢一轮：这一轮正文写到了那个时间，下一轮才会提醒。这里的提前量就是补那一轮，填 0 = 不提前；填多少取决于你一轮通常推进多少剧情时间，靠手感调。'),
+                '基于本插件的机制，插件必须在一轮正文后才能知道当前时间，这样会不可避免的造成一轮的滞后，而本功能的作用就是通过一个固定的时间提前量来对抗这个滞后，数值框内填多少就是相应的时间点提前多久提醒，填0就是不提前。'),
             row('定期检查', 'mid', '比原定位置早这么多就去看一眼（这个时点不产出正文，提前没有副作用）'),
             row('即将结束', 'late', '比原定位置早这么多就开始列要点'),
             row('预定终点（旧）', 'origin', '比原定的期限早这么多就提醒「马上就要超期了」（措辞会自动换成将来时）'),

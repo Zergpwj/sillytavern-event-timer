@@ -400,13 +400,6 @@ export class SettingsUI {
             this.row('或每多少回合', this.numberInput(cfg.reminder.checkEveryTurns, (v) => {
                 app.updateConfig({ reminder: { checkEveryTurns: Math.max(0, Math.round(Number(v) || 0)) } });
             }, '0'), '【按回合 / 楼层】每几个回合看一眼，从事件登记那一轮算起。填 0 = 关掉这一套。两套可以同时用，谁先到算谁'),
-            // 提前量：勾选框 + 一个进独立面板的按钮（不做成折叠块，用户要的是"提醒里的一个子选项"）
-            this.row('提前量', h('div.st-timer-threshold', [
-                this.checkbox('', cfg.reminder.advanceOn === true, (v) => {
-                    app.updateConfig({ reminder: { advanceOn: !!v } });
-                }),
-                this.button('设置…', () => openAdvanceEditor(app), 'st-timer-btn--tiny'),
-            ]), '补插件天生慢一轮的延迟。勾上之后点「设置…」逐个时点填提前多少；关掉时填好的数字会留着不生效'),
             this.row('即将结束位置', h('div.st-timer-threshold', [
                 this.numberInput(cfg.reminder.lateAt, (v) => {
                     app.updateConfig({ reminder: { lateAt: Math.min(99, Math.max(2, Number(v) || 85)) } });
@@ -429,6 +422,16 @@ export class SettingsUI {
             // ── 提醒内容 ──
             // 原来单独一节。并进来的理由：它回答的还是同一个问题 ——
             // 「什么时候去打扰 AI、打扰时说些什么」。
+            //
+            // ⚠️ 提前量这一行放在这三个**勾选框的上方**，而且本身也做成「勾选框 + 文字」
+            // 的形态 —— 这样它的方框和下面三个**左边对齐**（用 this.row 的话，
+            // 方框会跑到右边的控件列里去，离文字老远）。
+            h('div.st-timer-settings__row.st-timer-settings__row--left', [
+                this.checkbox('提前量（对冲回合滞后）', cfg.reminder.advanceOn === true, (v) => {
+                    app.updateConfig({ reminder: { advanceOn: !!v } });
+                }),
+                this.button('设置…', () => openAdvanceEditor(app), 'st-timer-btn--tiny'),
+            ]),
             this.checkbox('提醒里回显事件的「预期 / 变数 / 资源 / 设定摘要」', cfg.reminder.includeEventDetails !== false, (v) => {
                 app.updateConfig({ reminder: { includeEventDetails: v } });
             }),
