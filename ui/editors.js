@@ -413,7 +413,24 @@ export function openPromptEditor(app, id) {
         previewBox.textContent = engine.previewPrompts(fields, previewEvents(engine.clock)) || '（没有可预览的内容）';
     };
 
-    const placeholders = '{{tag}} 标签名 · {{time}} 当前剧情时间 · {{events}} 事件清单 · {{count}} 事件数 · {{tag}} 标签名 · {{exampleClock}} 时间示例 · {{tooShort}} 时长门槛那句话';
+    /**
+     * ⚠️ 占位符分**两个家族**，**不能混用** —— 写错家族的占位符不会被替换，
+     * 会原样发给模型。而且它**不报错**，所以很难发现（实测：把 {{timeClock}}
+     * 写进四个时点模板、或把 {{when}} 写进协议，都会原样留着）。
+     * 所以两处各给各的清单，别合并成一份。
+     */
+    const protocolPlaceholders = [
+        '这一栏里可用：{{tag}} 标签名 · {{tags}} 全部标签名 · {{timeClock}} 当前剧情时间',
+        '{{dayLabel}} 天标签的写法 · {{exampleClock}} 时间示例 · {{timeMode}} 计数制 / 日历制',
+        '{{era}} 纪元名 · {{monthCount}} 一年几个月 · {{monthNames}} 自定义月名',
+        '{{tooShort}} 时长门槛那句话 · {{reminderHint}} 「事件+ 只写一次」那两条规则',
+    ].join('；');
+    const pointPlaceholders = [
+        '这一栏里可用：{{tag}} 标签名 · {{time}} 或 {{clock}}（等价）当前剧情时间',
+        '{{events}} 事件清单 · {{count}} 事件条数',
+        '{{when}} 这个时点的时态短语（按真实时钟变）· {{whenBlock}} 预定终点（旧）事件块里那句',
+        '{{overdueHint}} 超时提醒（没有超时事件时**整行会被删掉**）',
+    ].join('；');
 
     const modal = openModal({
         title: isNew ? '新建提示词' : `编辑提示词：${existing.name}`,
@@ -423,6 +440,7 @@ export function openPromptEditor(app, id) {
             h('div.st-timer-settings__section-title', '记录格式说明（教 AI 输出标签）'),
             h('div.st-timer-settings__hint',
                 '这里是**模板**，可以直接改。{{...}} 会在真正发出去的时候被替换成当前的值，所以改了设置它也跟着变。'),
+            h('div.st-timer-settings__hint', protocolPlaceholders),
             protocolArea,
             h('div.st-timer-modal__actions', [
                 h('button.st-timer-btn.st-timer-btn--tiny', {
@@ -436,7 +454,7 @@ export function openPromptEditor(app, id) {
             ]),
 
             h('div.st-timer-settings__section-title', '四个提醒时点的文案'),
-            h('div.st-timer-settings__hint', placeholders),
+            h('div.st-timer-settings__hint', pointPlaceholders),
             ...POINT_EDITORS.map((spec) => h('div.st-timer-point-editor', [
                 h('div.st-timer-settings__label', spec.label),
                 h('div.st-timer-settings__hint', spec.hint),

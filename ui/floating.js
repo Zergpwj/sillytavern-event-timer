@@ -50,7 +50,7 @@ export class FloatingUI {
         }, [
             h('span.st-timer-fab__icon', '⏱'),
             h('span.st-timer-fab__body', [
-                h('span.st-timer-fab__clock', '—'),
+                h('span.st-timer-fab__clock', '…'),
                 h('span.st-timer-fab__sub', ''),
             ]),
             h('span.st-timer-fab__badge', { hidden: true }, '0'),

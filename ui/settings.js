@@ -339,11 +339,11 @@ export class SettingsUI {
         }), hint);
 
         return this.section('提前量', [
-            this.row('说明', h('div.st-timer-settings__hint', '插件是看完上一轮的正文才知道现在几点的，所以每个时点天生慢一轮：这一轮正文写到了那个时间，下一轮才会提醒。下面填的提前量就是补这一轮 —— 填 0 就是不提前（和以前一样）。填多少取决于你一轮通常推进多少剧情时间，靠手感调。'), ''),
+            this.row('说明', h('div.st-timer-settings__hint', '插件是看完上一轮的正文才知道现在几点的，所以每个时点天生慢一轮：这一轮正文写到了那个时间，下一轮才会提醒。下面填的提前量就是补这一轮，填 0 就是不提前（和以前一样）。填多少取决于你一轮通常推进多少剧情时间，靠手感调。'), ''),
             row('mid', '定期检查', '比原定位置早这么多就去看一眼（这个时点不产出正文，提前没有副作用）'),
             row('late', '即将结束', '比原定位置早这么多就开始列要点'),
             row('origin', '预定终点（旧）', '比原定的期限早这么多就提醒「马上就要超期了」（措辞会自动换成将来时）'),
-            row('due', '预定终点（现）', '比到期早这么多就提醒「马上就要到点了」，好让结果落在预定的那一轮里'),
+            row('due', '预定终点（现）', '比到期早这么多就提醒「马上就要到期了」，好让结果落在预定的那一轮里'),
         ]);
     }
 
@@ -486,7 +486,7 @@ export class SettingsUI {
             this.info(`当前角色：${app.host.getCharacterLabel?.() ?? '（未知）'}`),
             this.info(`当前生效：${this.profileName(app, activeId)}`),
             ...(activeId === GLOBAL_PROFILE_ID && app.currentProfileKey()
-                ? [this.info('⚠ 你正在编辑「全局默认」设置 —— 没有绑定档案的角色卡都会用它。想让这套设置只属于当前角色，点下面的「为当前角色新建一份…」。')]
+                ? [this.info('⚠ 你正在编辑「全局默认」设置，没有绑定档案的角色卡都会用它。想让这套设置只属于当前角色，点下面的「为当前角色新建一份…」。')]
                 : []),
             this.checkbox('换到新角色卡时自动新建一份档案', app.config.profiles?.autoCreateForCharacter !== false, (v) => {
                 app.updateConfig({ profiles: { autoCreateForCharacter: v } });
@@ -831,7 +831,7 @@ export class SettingsUI {
                     app.updateConfig({ time: { calendar: { leap: { ...leap, month: n } } } });
                     app.rebuild({ reason: 'leap' });
                 }), `公历里是 2（二月 29 日）。你的历法有几个月就填 1 到 ${effectiveMonths(cal).length}`),
-                this.info('举个例子：公历的「4 / 100 / 400 / 2」= 每 4 年多一天；但能被 100 整除的年份不多；不过能被 400 整除的年份还是多 —— 多的那天加在 2 月。'),
+                this.info('举个例子：公历的「4 / 100 / 400 / 2」= 每 4 年多一天；但能被 100 整除的年份不多；不过能被 400 整除的年份还是多，多的那天加在 2 月。'),
             ] : []),
             this.row('自定义月名', h('div.st-timer-settings__unitrow', [
                 h('span.st-timer-settings__value',

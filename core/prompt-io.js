@@ -87,7 +87,7 @@ export function parsePromptFile(text) {
     try {
         data = JSON.parse(raw);
     } catch {
-        errors.push('不是合法的 JSON —— 请确认粘的是完整的导出内容');
+        errors.push('不是合法的 JSON，请确认粘的是完整的导出内容');
         return fail();
     }
     if (!data || typeof data !== 'object' || Array.isArray(data)) {
@@ -138,7 +138,7 @@ export function parsePromptFile(text) {
     }
 
     if (!filled) {
-        errors.push('里面没有任何文案 —— 导入进来也是个空的');
+        errors.push('里面没有任何文案，导入进来也是个空的');
         return fail();
     }
 

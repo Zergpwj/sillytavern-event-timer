@@ -1351,7 +1351,10 @@ export class TimerEngine {
         return {
             tag: primaryTag(tags),
             tags: tags.join(', '),
-            dayLabel: String(this.config.time.dayLabel ?? '第{day}天').replace('{day}', '3'),
+            // 把用户配的标签模板里的 {day} 换成 N，保留他自己的写法（可能是「第{day}天」，
+            // 也可能是「纪元第{day}日」）。以前填的是示例数字 3，读起来像「这是第3天」，
+            // 在提示词里容易被当成真时间。示例时刻交给 exampleClock 去示范就够了。
+            dayLabel: String(this.config.time.dayLabel ?? '第{day}天').replace('{day}', 'N'),
             exampleClock: this.formatter.exampleClock(),
             // ⚠️ timeClock 是编辑器里宣传过、但一直没提供的占位符 —— 补上。
             // 提示词库里存模板时靠它，否则「当前剧情时间」会被冻成存下来的那一刻。
@@ -1394,7 +1397,18 @@ export class TimerEngine {
             minEventMinutes: this.config.reminder?.minEventMinutes,
         })
             .replace(protocolTooShort(this.config.reminder?.minEventMinutes), '{{tooShort}}')
-            .replace(/· 事件写完就不用管了[^\n]*/, '{{reminderHint}}');
+            /**
+             * ⚠️ 这里必须把 hint 折回**占位符**，不能让它以实体文字进模板。
+             *
+             * 原来那行写的是一条**过期**的旧句子（「· 事件写完就不用管了…」）——
+             * 那句早就不存在了，所以这条替换一直匹配不上，于是内置模板里躺着的是
+             * 「protocolReminderHint() 的渲染结果」这两行实体文字。后果和新用户有关：
+             * 建档时会把这份模板抄进存档，从此改 hint 再也传不到他那里（死文本）。
+             *
+             * 现在直接用**当前**的 hint 文本去匹配 —— 它就在上面几行刚插进去，
+             * 所以永远不会过期。
+             */
+            .replace(protocolReminderHint(), '{{reminderHint}}');
 
         return {
             protocol,
