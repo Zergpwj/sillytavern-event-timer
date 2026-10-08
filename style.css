@@ -69,6 +69,18 @@
     white-space: nowrap;
     font-size: 13px;
     font-family: inherit;
+
+    /*
+     * ⚠️⚠️ 手机端拖动的**必需项**，别删。
+     *
+     * 不写的话 touch-action 默认是 auto —— 手指按住往下拖时，浏览器会把它
+     * 判定成「滚动页面」，于是立刻发一个 pointercancel 把我们的拖动作废：
+     * pointermove 一次都收不到，表现就是**悬浮按钮拖不动**（尤其在手机端）。
+     *
+     * 只写在按钮上，不写到 .st-timer-root 上：面板里是要能正常滚动的。
+     */
+    touch-action: none;
+    -webkit-user-drag: none;
 }
 
 .st-timer-fab:hover {

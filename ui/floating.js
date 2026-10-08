@@ -94,11 +94,62 @@ export class FloatingUI {
         this.root.dataset.theme = this.app.config.ui.theme || 'auto';
     }
 
+    /**
+     * 把悬浮按钮的**中心点**（像素）夹进视口里。
+     *
+     * ⚠️ 单位统一成「中心点像素」是修这次 bug 时定下来的约定：
+     * CSS 里 .st-timer-root 带着 transform 的 translate(-50%, -50%)，
+     * 所以 left/top 说的本来就是**中心**，不是左上角。
+     *
+     * 之前两处不一致：
+     *   · onMove 写的是 px（当中心用 ✓）
+     *   · onUp 存进配置的却是 rect.left / innerWidth —— 那是**左上角** ✗
+     *   · applyPosition 又把存下来的值当中心用 ✗
+     * 结果是「拖完 → 重新打开」会整体往左上跳半个组件；手机屏幕小，
+     * 半个组件就足以让它贴到最顶端、上半截跑到屏幕外，看着像卡住不动。
+     *
+     * 顺带把「拖出屏幕」也堵上：夹的范围按按钮**实际尺寸**算，
+     * 而不是原来那个写死的 40px（按钮宽一百多，40 根本不够）。
+     *
+     * ⚠️ 这段注释里不要用反引号 —— i18n 扫描器会把两个反引号之间的中文
+     * 当成界面文案去查词典（已经栽过三次了）。
+     */
+    // eslint-disable-next-line class-methods-use-this
+    _clampCenter(cx, cy, width, height, vw, vh, margin = 4) {
+        const halfW = Math.max(0, width) / 2;
+        const halfH = Math.max(0, height) / 2;
+        const minX = halfW + margin;
+        const maxX = Math.max(minX, vw - halfW - margin);
+        const minY = halfH + margin;
+        const maxY = Math.max(minY, vh - halfH - margin);
+        const nx = Number.isFinite(cx) ? cx : minX;
+        const ny = Number.isFinite(cy) ? cy : minY;
+        return {
+            x: Math.min(maxX, Math.max(minX, nx)),
+            y: Math.min(maxY, Math.max(minY, ny)),
+        };
+    }
+
+    /** 量一下按钮现在的尺寸；量不到（还没布局）就给个保守估值 */
+    _fabSize() {
+        const rect = this.root?.getBoundingClientRect?.();
+        return {
+            w: rect && rect.width ? rect.width : 120,
+            h: rect && rect.height ? rect.height : 34,
+        };
+    }
+
     applyPosition() {
         if (!this.root) return;
-        const { x, y } = this.app.config.ui.fabPos || { x: 0.88, y: 0.7 };
-        this.root.style.left = `${Math.round(x * 100)}%`;
-        this.root.style.top = `${Math.round(y * 100)}%`;
+        const pos = this.app.config.ui.fabPos || { x: 0.88, y: 0.7 };
+        const vw = window.innerWidth || 360;
+        const vh = window.innerHeight || 640;
+        const { w, h } = this._fabSize();
+        // 存的是「中心点占视口的比例」；夹一次，保证它一定整个在屏幕里。
+        // 这一步同时会把**以前存坏的坐标**（差半个组件的那些）自动救回来。
+        const c = this._clampCenter((Number(pos.x) || 0) * vw, (Number(pos.y) || 0) * vh, w, h, vw, vh);
+        this.root.style.left = `${Math.round(c.x)}px`;
+        this.root.style.top = `${Math.round(c.y)}px`;
     }
 
     toggle(force) {
@@ -128,24 +179,30 @@ export class FloatingUI {
         const handle = this.fab;
         let startX = 0;
         let startY = 0;
-        let originX = 0;
-        let originY = 0;
+        // 全部按**中心点**算 —— 和 CSS 的 translate(-50%, -50%) 对齐
+        let centerX = 0;
+        let centerY = 0;
+        let size = { w: 120, h: 34 };
         let moved = false;
 
         const onDown = (e) => {
             if (e.button != null && e.button !== 0) return;
             const point = e.touches ? e.touches[0] : e;
+            if (!point) return;
             startX = point.clientX;
             startY = point.clientY;
             const rect = this.root.getBoundingClientRect();
-            originX = rect.left;
-            originY = rect.top;
+            size = { w: rect.width || 120, h: rect.height || 34 };
+            centerX = rect.left + size.w / 2;
+            centerY = rect.top + size.h / 2;
             moved = false;
             this._dragging = true;
             this.root.classList.add('is-dragging');
             window.addEventListener('pointermove', onMove);
             window.addEventListener('pointerup', onUp);
             window.addEventListener('pointercancel', onUp);
+            // 把后续指针事件钉在这个元素上：手指划出按钮范围也不会丢
+            try { handle.setPointerCapture?.(e.pointerId); } catch { /* 不支持就算了 */ }
         };
 
         const onMove = (e) => {
@@ -153,12 +210,11 @@ export class FloatingUI {
             const dx = e.clientX - startX;
             const dy = e.clientY - startY;
             if (Math.abs(dx) > 4 || Math.abs(dy) > 4) moved = true;
-            const maxX = window.innerWidth - 40;
-            const maxY = window.innerHeight - 40;
-            const left = Math.min(maxX, Math.max(0, originX + dx));
-            const top = Math.min(maxY, Math.max(0, originY + dy));
-            this.root.style.left = `${left}px`;
-            this.root.style.top = `${top}px`;
+            const vw = window.innerWidth || 360;
+            const vh = window.innerHeight || 640;
+            const c = this._clampCenter(centerX + dx, centerY + dy, size.w, size.h, vw, vh);
+            this.root.style.left = `${Math.round(c.x)}px`;
+            this.root.style.top = `${Math.round(c.y)}px`;
         };
 
         const onUp = () => {
@@ -169,15 +225,21 @@ export class FloatingUI {
             window.removeEventListener('pointermove', onMove);
             window.removeEventListener('pointerup', onUp);
             window.removeEventListener('pointercancel', onUp);
-            if (moved) {
-                const rect = this.root.getBoundingClientRect();
-                this.app.config.ui.fabPos = {
-                    x: Math.min(1, Math.max(0, rect.left / window.innerWidth)),
-                    y: Math.min(1, Math.max(0, rect.top / window.innerHeight)),
-                };
-                this.app.saveSettings();
-                this.applyPosition();
-            }
+            if (!moved) return;
+            // ⚠️ 存**中心点**的比例，不是 rect.left —— 那是左上角。
+            // 以前存错的就是这里，重开时才会往上跳半个组件。
+            const rect = this.root.getBoundingClientRect();
+            const vw = window.innerWidth || 360;
+            const vh = window.innerHeight || 640;
+            const w = rect.width || size.w;
+            const h = rect.height || size.h;
+            const clamped = this._clampCenter(
+                rect.left + w / 2, rect.top + h / 2, w, h, vw, vh,
+            );
+            const clamp01 = (v) => Math.min(1, Math.max(0, v));
+            this.app.config.ui.fabPos = { x: clamp01(clamped.x / vw), y: clamp01(clamped.y / vh) };
+            this.app.saveSettings();
+            this.applyPosition();
         };
 
         handle.addEventListener('pointerdown', onDown);
