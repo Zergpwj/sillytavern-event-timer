@@ -386,6 +386,72 @@ export function openPromptImport(app) {
     });
 }
 
+/**
+ * 「提前量」的独立设置面板。
+ *
+ * 形态是用户定的：设置面板上只放一行「勾选框 + 设置… 按钮」，
+ * 点按钮才打开这里。不塞在「提醒」那一节里，是因为它一次管四个时点，
+ * 摊开会把那一节拉得很长，而它只在调手感的时候才用得上。
+ *
+ * ⚠️ 「定期检查」那一格在**「按剧情时间」关掉**时禁用：
+ * 回合制下的定期检查由回合触发，提前量（分钟）对它无从施加。
+ * 另外三个时点仍然锚在剧情时间上，所以照常可用 —— 这也是为什么
+ * 禁用的是**这一格**，而不是整个提前量开关。
+ */
+export function openAdvanceEditor(app) {
+    const read = () => app.config.reminder.advance ?? {};
+    const timeRuleOff = !(Number(app.config.reminder.checkEveryDays) > 0);
+
+    const dayHour = (key, disabled) => {
+        const total = Math.max(0, Number(read()[key]) || 0);
+        const d0 = Math.floor(total);
+        const h0 = Math.round((total - d0) * 24);
+        const make = (val) => {
+            const el = h('input.st-timer-input.st-timer-input--num', { type: 'number', min: '0' });
+            el.value = String(val);
+            if (disabled) el.disabled = true;
+            return el;
+        };
+        const dIn = make(d0);
+        const hIn = make(h0);
+        const push = () => {
+            const next = { ...read() };
+            next[key] = Math.max(0, Number(dIn.value) || 0) * 1440 + Math.max(0, Number(hIn.value) || 0) * 60;
+            app.updateConfig({ reminder: { advance: next } });
+        };
+        dIn.addEventListener('change', push);
+        hIn.addEventListener('change', push);
+        return h('div.st-timer-threshold', [
+            dIn, h('span.st-timer-threshold__suffix', '天'),
+            hIn, h('span.st-timer-threshold__suffix', '小时'),
+        ]);
+    };
+
+    const row = (label, key, hint) => {
+        const disabled = key === 'mid' && timeRuleOff;
+        return h('div.st-timer-settings__row', [
+            h('div.st-timer-settings__label', label),
+            dayHour(key, disabled),
+            h('div.st-timer-settings__hint', disabled
+                ? '已停用：你关掉了「按剧情时间」的检查间隔，定期检查现在由回合触发，提前量（分钟）对它没有意义。另外三个时点不受影响。'
+                : hint),
+        ]);
+    };
+
+    return openModal({
+        title: '提前量',
+        width: 'min(680px, 94vw)',
+        build: () => [
+            h('div.st-timer-settings__hint',
+                '插件是看完上一轮的正文才知道现在几点的，所以每个时点天生慢一轮：这一轮正文写到了那个时间，下一轮才会提醒。这里的提前量就是补那一轮，填 0 = 不提前；填多少取决于你一轮通常推进多少剧情时间，靠手感调。'),
+            row('定期检查', 'mid', '比原定位置早这么多就去看一眼（这个时点不产出正文，提前没有副作用）'),
+            row('即将结束', 'late', '比原定位置早这么多就开始列要点'),
+            row('预定终点（旧）', 'origin', '比原定的期限早这么多就提醒「马上就要超期了」（措辞会自动换成将来时）'),
+            row('预定终点（现）', 'due', '比到期早这么多就提醒「马上就要到期了」，好让结果落在预定的那一轮里'),
+        ],
+    });
+}
+
 export function openPromptEditor(app, id) {
     const isNew = !id;
     const existing = isNew ? null : app.prompts.find((p) => p.id === id);

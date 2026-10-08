@@ -913,6 +913,8 @@ export class TimerEngine {
      * pointStatePhrases 按**真实时钟**决定说「已经…」还是「马上就要…」。
      */
     _pointAdvance(point) {
+        // 总开关关掉时一律不提前（四个值留着不动，方便下次打开时还是手调好的数）
+        if (!this.config.reminder?.advanceOn) return 0;
         const raw = this.config.reminder?.advance?.[point];
         const n = Number(raw);
         return Number.isFinite(n) && n > 0 ? n : 0;
@@ -981,13 +983,50 @@ export class TimerEngine {
                 if (p.abs > midLimit) break;
                 if (!firedMids.has(p.abs)) latest = p.abs;
             }
-            // 和某个还没兑现的旧期限挤在同一天时不报定期检查 ——
-            // 那一刻该说的是「你之前答应的期限过去了」，不是「进度过半了」
-            if (latest != null && !this._nearUnfiredOrigin(ev, latest)) {
-                return [{ point: 'mid', midAbs: latest }];
+            /**
+             * 回合制那一套（`checkEveryTurns`）和上面那套**共存**，谁先到算谁。
+             *
+             * 两套都关掉 → 没有定期检查。任意一套到点 → 提醒一次，
+             * 然后 commitReminder 会把**两套**都已到点的锚点一起标记掉，
+             * 免得下一轮立刻又因为另一套响一次（连着两轮说同一件事很烦）。
+             */
+            const firedTurns = new Set((ev.firedMidTurns ?? []).map(Number));
+            let latestTurn = null;
+            for (const p of this._midTurns(ev)) {
+                if (!firedTurns.has(p.turn)) latestTurn = p.turn;
             }
+            if (latest == null && latestTurn == null) return [];
+            // 和某个还没兑现的旧期限挤在同一天时不报定期检查 ——
+            // 那一刻该说的是「你之前答应的期限过去了」，不是「进度过半了」。
+            // 只在「本来要因时间制而报」时才让位；回合制到点就照报。
+            if (latest != null && latestTurn == null && this._nearUnfiredOrigin(ev, latest)) return [];
+            return [{ point: 'mid', midAbs: latest, midTurn: latestTurn }];
         }
         return [];
+    }
+
+    /**
+     * 定期检查的**回合制**点位（`{ turn }`，绝对回合号）。
+     *
+     * ⚠️ 这里**不做**「到期 / 末段之后不再排点位」的截断 —— 那套截断是拿剧情时间比的，
+     * 而回合数和剧情时间之间没有换算关系。重复打扰由优先级兜住：一轮只报一个时点，
+     * 而且 due > origin > late > mid，到了末段/到点之后定期检查自然就轮不上了。
+     *
+     * `createdTurn` 是登记事件那一刻记下的（engine 里一直有）。老存档万一缺这个字段，
+     * 退回 0 —— 退化的结果只是「按第 0 回合起算」，不会崩。
+     */
+    _midTurns(ev) {
+        const every = Number(this.config.reminder?.checkEveryTurns);
+        if (!Number.isFinite(every) || every <= 0) return [];
+        const base = Number.isFinite(Number(ev.createdTurn)) ? Number(ev.createdTurn) : 0;
+        const now = this.state.turns;
+        const out = [];
+        for (let k = 1; k <= 10000; k++) {
+            const turn = base + k * every;
+            if (turn > now) break;
+            out.push({ turn });
+        }
+        return out;
     }
 
     /**
@@ -1097,6 +1136,8 @@ export class TimerEngine {
                     // 定期检查点位是按绝对分钟逐个记的，锚点必须一起带出去 ——
                     // 漏了它 commitReminder 就不知道该标记哪一个，同一个点位会反复提醒
                     reminderMidAbs: item.midAbs ?? null,
+                    // 回合制那一套同理（两套规律共存，各自记各自的锚点）
+                    reminderMidTurn: item.midTurn ?? null,
                 });
             }
         }
@@ -1153,12 +1194,30 @@ export class TimerEngine {
 
                 // 定期检查点位：报出去的那个、以及所有比它早的，一起标记。
                 // 报 late / due 时，把已经到时间的点位全部标记（同上，避免过时补发）。
-                const upto = point === 'mid' ? Number(item.reminderMidAbs) : clockToAbs(this.state.clock);
+                // ⚠️ 两套规律都要标记。
+                //
+                // 时间制那一套按「已经到点的绝对分钟」记；回合制那一套按回合号记。
+                // 一次提醒之后**两套都推进到当下** —— 否则下一轮另一套会立刻再响一次，
+                // 连着两轮说同一件事。
+                //
+                // 上界用「当前的绝对时刻」而不是只看这一条提醒锚定的那个点：
+                // 事件一次跨过好几个点位时，事后补发一条「你已经到 21% 了」是荒谬的，
+                // 这跟非 mid 分支用的是同一个口径（clockToAbs(this.state.clock)）。
+                const upto = Math.max(
+                    point === 'mid' ? (Number(item.reminderMidAbs) || 0) : 0,
+                    clockToAbs(this.state.clock),
+                );
                 const mids = new Set((ev.firedMids ?? []).map(Number));
                 for (const p of this._midPoints(ev)) {
                     if (p.abs <= upto) mids.add(p.abs);
                 }
                 ev.firedMids = [...mids].sort((a, b) => a - b);
+
+                const turns = new Set((ev.firedMidTurns ?? []).map(Number));
+                for (const p of this._midTurns(ev)) {
+                    if (p.turn <= this.state.turns) turns.add(p.turn);
+                }
+                ev.firedMidTurns = [...turns].sort((a, b) => a - b);
             }
 
             ev.notifyCount = (ev.notifyCount || 0) + 1;

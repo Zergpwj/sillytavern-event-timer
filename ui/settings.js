@@ -18,6 +18,7 @@ import {
     openPromptEditor,
     openPromptExport,
     openPromptImport,
+    openAdvanceEditor,
 } from './editors.js';
 
 /**
@@ -234,7 +235,6 @@ export class SettingsUI {
                 this.sectionMaster(),
                 this.sectionTimeBase(cfg),
                 this.sectionReminder(cfg),
-                this.sectionAdvance(cfg),
                 this.sectionPrompts(),
                 this.sectionProfiles(),
                 this.sectionUi(cfg),
@@ -329,23 +329,13 @@ export class SettingsUI {
      * 四个格子都是「天 + 小时」，和「检查间隔」同一套控件；
      * 存进去的是**分钟**（advance 的单位），两者之间换算一下。
      */
-    sectionAdvance(cfg) {
-        const app = this.app;
-        const adv = cfg.reminder.advance ?? {};
-        const row = (key, label, hint) => this.row(label, this.dayHourInput((Number(adv[key]) || 0) / 1440, (days) => {
-            const next = { ...(app.config.reminder.advance ?? {}) };
-            next[key] = Math.max(0, Math.round((Number(days) || 0) * 1440));
-            app.updateConfig({ reminder: { advance: next } });
-        }), hint);
-
-        return this.section('提前量', [
-            this.row('说明', h('div.st-timer-settings__hint', '插件是看完上一轮的正文才知道现在几点的，所以每个时点天生慢一轮：这一轮正文写到了那个时间，下一轮才会提醒。下面填的提前量就是补这一轮，填 0 就是不提前（和以前一样）。填多少取决于你一轮通常推进多少剧情时间，靠手感调。'), ''),
-            row('mid', '定期检查', '比原定位置早这么多就去看一眼（这个时点不产出正文，提前没有副作用）'),
-            row('late', '即将结束', '比原定位置早这么多就开始列要点'),
-            row('origin', '预定终点（旧）', '比原定的期限早这么多就提醒「马上就要超期了」（措辞会自动换成将来时）'),
-            row('due', '预定终点（现）', '比到期早这么多就提醒「马上就要到期了」，好让结果落在预定的那一轮里'),
-        ]);
-    }
+    /**
+     * 「提前量」现在**不是**独立一节了。
+     *
+     * 用户要的形态是「提醒里的一个子选项」：一行勾选框 + 右边一个按钮，
+     * 点开才是独立的设置面板（见 editors.js 的 openAdvanceEditor）。
+     * 所以这里只保留那两行入口，四个时点的输入框搬进了面板。
+     */
 
     /**
      * 「提醒」—— 把原来的「提醒时点」和「时长门槛」合成一节。
@@ -400,9 +390,23 @@ export class SettingsUI {
             // 定期检查以前是「一个百分比位置」，后来改成「每 N 天一个点位」（见 checkEveryDays）。
             // 输入框现在是「天 + 小时」两格 —— 原来那个「7天」文本框只认单一单位，
             // 「1天12小时」会被静默忽略（详见 dayHourInput 的注释）。
+            //
+            // ⚠️ 现在是**两套规律**：剧情时间 / 回合。谁先到算谁；各自填 0 = 关掉那一套；
+            // 两套都关掉才等于没有定期检查。回合制解决的是「时间制密度随玩家节奏变」——
+            // 快节奏时可能每轮都触发，慢节奏时几十轮才一次。
             this.row('检查间隔', this.dayHourInput(cfg.reminder.checkEveryDays, (days) => {
                 app.updateConfig({ reminder: { checkEveryDays: Math.max(0, Number(days) || 0) } });
-            }), '每多久回头看一眼（从事件开始算起，固定不变）。两格都填 0 = 不要定期检查；事件比这个间隔还短，就只在正中间看一次'),
+            }), '【按剧情时间】每多久回头看一眼（从事件开始算起，固定不变）。两格都填 0 = 关掉这一套；事件比这个间隔还短，就只在正中间看一次'),
+            this.row('或每多少回合', this.numberInput(cfg.reminder.checkEveryTurns, (v) => {
+                app.updateConfig({ reminder: { checkEveryTurns: Math.max(0, Math.round(Number(v) || 0)) } });
+            }, '0'), '【按回合 / 楼层】每几个回合看一眼，从事件登记那一轮算起。填 0 = 关掉这一套。两套可以同时用，谁先到算谁'),
+            // 提前量：勾选框 + 一个进独立面板的按钮（不做成折叠块，用户要的是"提醒里的一个子选项"）
+            this.row('提前量', h('div.st-timer-threshold', [
+                this.checkbox('', cfg.reminder.advanceOn === true, (v) => {
+                    app.updateConfig({ reminder: { advanceOn: !!v } });
+                }),
+                this.button('设置…', () => openAdvanceEditor(app), 'st-timer-btn--tiny'),
+            ]), '补插件天生慢一轮的延迟。勾上之后点「设置…」逐个时点填提前多少；关掉时填好的数字会留着不生效'),
             this.row('即将结束位置', h('div.st-timer-threshold', [
                 this.numberInput(cfg.reminder.lateAt, (v) => {
                     app.updateConfig({ reminder: { lateAt: Math.min(99, Math.max(2, Number(v) || 85)) } });
