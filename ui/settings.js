@@ -234,6 +234,7 @@ export class SettingsUI {
                 this.sectionMaster(),
                 this.sectionTimeBase(cfg),
                 this.sectionReminder(cfg),
+                this.sectionAdvance(cfg),
                 this.sectionPrompts(),
                 this.sectionProfiles(),
                 this.sectionUi(cfg),
@@ -314,6 +315,35 @@ export class SettingsUI {
             h('div.st-timer-settings__buttons', [
                 this.button('AI 推断历法', () => openCalendarWizard(app), 'st-timer-btn--primary'),
             ]),
+        ]);
+    }
+
+    /**
+     * 「提前量」—— 单独一节，四个时点各一个。
+     *
+     * 为什么单独成节而不是塞进「提醒」：它是**一组对四个时点统一生效**的参数，
+     * 语义上也不一样 —— 「提醒」那一节回答「什么时候打扰 AI」，
+     * 这一节回答「怎么补插件天生的那一轮延迟」。塞在一起会让人以为
+     * 提前量和 lateAt / checkEveryDays 是同一类东西。
+     *
+     * 四个格子都是「天 + 小时」，和「检查间隔」同一套控件；
+     * 存进去的是**分钟**（advance 的单位），两者之间换算一下。
+     */
+    sectionAdvance(cfg) {
+        const app = this.app;
+        const adv = cfg.reminder.advance ?? {};
+        const row = (key, label, hint) => this.row(label, this.dayHourInput((Number(adv[key]) || 0) / 1440, (days) => {
+            const next = { ...(app.config.reminder.advance ?? {}) };
+            next[key] = Math.max(0, Math.round((Number(days) || 0) * 1440));
+            app.updateConfig({ reminder: { advance: next } });
+        }), hint);
+
+        return this.section('提前量', [
+            this.row('说明', h('div.st-timer-settings__hint', '插件是看完上一轮的正文才知道现在几点的，所以每个时点天生慢一轮：这一轮正文写到了那个时间，下一轮才会提醒。下面填的提前量就是补这一轮 —— 填 0 就是不提前（和以前一样）。填多少取决于你一轮通常推进多少剧情时间，靠手感调。'), ''),
+            row('mid', '定期检查', '比原定位置早这么多就去看一眼（这个时点不产出正文，提前没有副作用）'),
+            row('late', '即将结束', '比原定位置早这么多就开始列要点'),
+            row('origin', '预定终点（旧）', '比原定的期限早这么多就提醒「马上就要超期了」（措辞会自动换成将来时）'),
+            row('due', '预定终点（现）', '比到期早这么多就提醒「马上就要到点了」，好让结果落在预定的那一轮里'),
         ]);
     }
 

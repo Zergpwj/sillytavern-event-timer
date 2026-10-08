@@ -191,7 +191,10 @@ function renderOriginBlock(ev, clock, cfg, formatClock, index) {
     const delta = total - initial;
     const n = (ev.dueHistory ?? []).length;
 
-    lines.push(`${index}. 《${ev.title}》 **原定的期限已经到了，但它还没有结束。**`);
+    // 这一行原来是无条件写死的「原定的期限已经到了」—— 连时钟都没看。
+    // 提前量会在这个时点还没真的到之前就触发它，所以必须按真实时钟分流。
+    const { whenBlock } = pointStatePhrases('origin', [ev], clock);
+    lines.push(`${index}. 《${ev.title}》 ${whenBlock}`);
     lines.push(`   最初登记：${dur(initial)}`);
     lines.push(`   现在预计：${dur(total)}${delta !== 0 ? `（第 ${n} 次顺延，${delta > 0 ? '+' : '−'}${dur(Math.abs(delta))}）` : ''}`);
     pushDetails(lines, ev, cfg);
@@ -203,7 +206,11 @@ function renderDueBlock(ev, clock, cfg, formatClock, index) {
     const lines = [];
     const overdue = clockToAbs(clock) - clockToAbs(ev.dueClock);
     const dueText = fmt(formatClock, ev.dueClock);
-    const eta = overdue > 0 ? `（已超时 ${dur(overdue)}）` : '（刚刚到点）';
+    // 三档，不是两档：加了提前量之后「还没到」也会走到这里，
+    // 原来只有「已超时」和「刚刚到点」两个分支 —— 差 6 小时也会说「刚刚到点」。
+    const eta = overdue > 0
+        ? `（已超时 ${dur(overdue)}）`
+        : (overdue === 0 ? '（刚刚到点）' : `（还剩 ${dur(-overdue)}）`);
     lines.push(`${index}. 《${ev.title}》 预定完成时间：${dueText}${eta}`);
     pushDetails(lines, ev, cfg);
     if (ev.createdClock) {
@@ -235,9 +242,70 @@ const BLOCK_RENDERERS = {
  *
  * @param {boolean} [opts.template] true 时把活的值换成占位符
  */
-function builtinPointParts(point, clock, config, formatClock, tag, { template = false } = {}) {
+/**
+ * 某个时点在**当前这一刻**该说的话 —— 按真实时钟算，**不是按配置算**。
+ *
+ * 为什么需要它：加了「提前量」之后，一个时点多出**第三种状态** ——
+ * 「还没到，但马上就到」。而原来的文案只认识两种状态：
+ * 「还没到（所以根本不触发）」和「已经过了（所以这么说）」。
+ * 少了那一档，提前触发就只能借用「已经过了」的说法，那是在说假话：
+ * AI 会照着在正文里把事件提前了结，倒计时被砍短。
+ *
+ * 所以这里按真实时钟分流：
+ *   时钟 ≥ 时点   → 「已经…」      （一字不改，和没有提前量时完全一样）
+ *   时钟 < 时点   → 「马上就要…」  （只可能因为提前量才会走到这里）
+ *
+ * ⚠️ 一组里混着「已经过」和「还没到」时，**只要有一个已经过就用「已经…」版**：
+ * 宁可少说「马上」，也不能说「已经」而其实没到。每条事件自己的
+ * 「还剩 X」/「已超时 X」会把精确信息补上。
+ *
+ * @returns {{when: string, whenBlock: string}} 前者填段首，后者填事件块
+ */
+function pointStatePhrases(point, group, clock) {
+    const nowAbs = clockToAbs(clock);
+    const list = Array.isArray(group) ? group : [];
+
+    /** 某条事件的那个时点是不是**真的**已经到了 */
+    const reached = (ev) => {
+        if (point === 'due') return nowAbs >= clockToAbs(ev.dueClock);
+        if (point === 'origin') {
+            // 优先用这一轮提醒锚定的那个旧期限；没有就退回最早的那个
+            const anchor = Number(ev.reminderOriginAbs);
+            const histories = (ev.dueHistory ?? []).map((c) => clockToAbs(c)).filter((n) => Number.isFinite(n));
+            const abs = Number.isFinite(anchor) && anchor > 0 ? anchor : Math.min(...histories);
+            return Number.isFinite(abs) && nowAbs >= abs;
+        }
+        return true; // mid / late 没有这种断言，走哪个分支都一样
+    };
+
+    const passed = list.length === 0 || list.some(reached);
+
+    if (point === 'origin') {
+        return passed
+            ? {
+                when: '**过了原定的期限还没有结束**',
+                whenBlock: '**原定的期限已经到了，但它还没有结束。**',
+            }
+            : {
+                when: '**马上就要过原定的期限了**',
+                whenBlock: '**这一轮结束时就会过原定期限，现在还没到。**',
+            };
+    }
+    if (point === 'due') {
+        return passed
+            ? { when: '已经到达预定的完成时间', whenBlock: '' }
+            : { when: '马上就要到达预定的完成时间了', whenBlock: '' };
+    }
+    return { when: '', whenBlock: '' };
+}
+
+function builtinPointParts(point, clock, config, formatClock, tag, { template = false, phrases = null } = {}) {
     const cfg = config?.reminder ?? {};
     const now = template ? '{{time}}' : (fmt(formatClock, clock) || '(未知)');
+    // 模板形态留占位符（渲染时才知道该说"已经"还是"马上"）；
+    // 渲染形态直接用算好的话。两者必须一字不差，有测试守着。
+    const when = template ? '{{when}}' : (phrases?.when ?? '');
+    const whenBlock = template ? '{{whenBlock}}' : (phrases?.whenBlock ?? '');
     const head = [pointHeader(tag, point), `当前剧情时间：${now}`];
     const tail = [];
 
@@ -267,12 +335,12 @@ function builtinPointParts(point, clock, config, formatClock, tag, { template = 
         tail.push('  事件~: <事件名> | 要点=方面1 / 方面2 / 方面3');
         tail.push('如果此时发现时间也要改，可以一起写：事件~: <事件名> | 要点=… | 时长=<新的总时长>');
     } else if (point === 'origin') {
-        head.push('下列事件**过了原定的期限还没有结束**。请在正文里体现这件事带来的影响：');
+        head.push(`下列事件${when}。请在正文里体现这件事带来的影响：`);
         head.push('比如旁人的议论、局势的变化、要不要派人去找、要不要另想办法。');
         tail.push('');
         tail.push('如果这期间又有新变化，可以再调整：事件~: <事件名> | 时长=<新的总时长> | 预期=…');
     } else {
-        head.push('下列事件已经到达预定的完成时间，请在正文里交代它们的结果：');
+        head.push(`下列事件${when}，请在正文里交代它们的结果：`);
         if (template) {
             // 超时提醒只在真的有事件超时时才出现，所以模板里留个占位符
             tail.push('{{overdueHint}}');
@@ -297,7 +365,8 @@ function builtinPointParts(point, clock, config, formatClock, tag, { template = 
 /** 每个时点的内置文案（模板为空时用它） */
 function builtinPointText(point, list, clock, config, formatClock, tag) {
     const cfg = config?.reminder ?? {};
-    const { head, tail } = builtinPointParts(point, clock, config, formatClock, tag);
+    const phrases = pointStatePhrases(point, list, clock);
+    const { head, tail } = builtinPointParts(point, clock, config, formatClock, tag, { phrases });
     const render = BLOCK_RENDERERS[point] ?? renderDueBlock;
     const blocks = list.map((ev, i) => render(ev, clock, config, formatClock, i + 1));
 
@@ -388,7 +457,16 @@ export function renderReminderText(input) {
                     && group.some((e) => clockToAbs(clock) > clockToAbs(e.dueClock))) {
                     overdueHint = '注意：上面标注「已超时」的事件已经拖过了预定时间，请优先处理。';
                 }
-                parts.push(interpolate(custom, { time, events: blocks, tag, extra: { overdueHint } }));
+                // {{when}} / {{whenBlock}}：同样是**按真实时钟**算的时态短语 ——
+                // 存档里的模板可能还是旧的（没有这两个占位符），那就保持原样，
+                // 所以不指望用户一定迁移过。
+                const phrases = pointStatePhrases(point, group, clock);
+                parts.push(interpolate(custom, {
+                    time,
+                    events: blocks,
+                    tag,
+                    extra: { overdueHint, when: phrases.when, whenBlock: phrases.whenBlock },
+                }));
             } else {
                 parts.push(builtinPointText(point, group, clock, config, formatClock, tag));
             }

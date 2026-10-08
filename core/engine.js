@@ -875,6 +875,22 @@ export class TimerEngine {
      * @param {{mid:boolean,late:boolean,origin:boolean,due:boolean,everyTurn:boolean}} points
      * @returns {Array<{point:string, originAbs?:number}>} 0 或 1 项
      */
+    /**
+     * 某个时点的**提前量**（分钟）。0 / 没配 / 非法值 = 不提前。
+     *
+     * 提前量补的是「插件慢一轮」这件事：它是看完上一轮的正文才知道现在几点的，
+     * 所以每个时点天生滞后一轮。把触发条件放宽 N 分钟，就能让提醒赶在
+     * 剧情走到那个点之前发出去。
+     *
+     * ⚠️ 只放宽**触发**，不改时点的含义 —— 措辞那一侧由 reminder.js 的
+     * pointStatePhrases 按**真实时钟**决定说「已经…」还是「马上就要…」。
+     */
+    _pointAdvance(point) {
+        const raw = this.config.reminder?.advance?.[point];
+        const n = Number(raw);
+        return Number.isFinite(n) && n > 0 ? n : 0;
+    }
+
     _pendingPoints(ev, points) {
         if (ev.status === 'resolved' || ev.status === 'cancelled') return [];
         const cfg = this.config.reminder;
@@ -883,7 +899,7 @@ export class TimerEngine {
         const dueAbs = clockToAbs(ev.dueClock);
 
         // ── 1. 到点（最高优先级：事情该结了） ──
-        if (nowAbs >= dueAbs) {
+        if (nowAbs >= dueAbs - this._pointAdvance('due')) {
             if (!points.due) return [];
             if (!fired.due) return [{ point: 'due' }];
             if (points.everyTurn) {
@@ -904,9 +920,11 @@ export class TimerEngine {
         // ── 3. 预定终点（旧）（被延后过，旧的到期时间已经过去） ──
         if (points.origin) {
             const firedOrigins = new Set((ev.firedOrigins ?? []).map(Number));
+            // 提前量把「已经过去」放宽成「快要过去」：abs <= now + 提前量
+            const originLimit = nowAbs + this._pointAdvance('origin');
             const passed = (ev.dueHistory ?? [])
                 .map((c) => clockToAbs(c))
-                .filter((abs) => abs <= nowAbs && !firedOrigins.has(abs))
+                .filter((abs) => abs <= originLimit && !firedOrigins.has(abs))
                 .sort((a, b) => a - b);
             if (passed.length) return [{ point: 'origin', originAbs: passed[0] }];
         }
@@ -916,8 +934,12 @@ export class TimerEngine {
         const pct = (diffMinutes(this.state.clock, ev.createdClock) / total) * 100;
 
         // 「即将结束」优先于定期检查：它更靠后，而且能把「事情拖到末期了」一次讲清楚。
-        if (points.late && !fired.late && pct >= (Number(cfg.lateAt) || 85)) {
-            return [{ point: 'late' }];
+        // 提前量走绝对值：lateAt 是百分比位置，换算成时刻才好往前挪。
+        if (points.late && !fired.late) {
+            const lateAbs = clockToAbs(addMinutes(ev.createdClock, (total * (Number(cfg.lateAt) || 85)) / 100));
+            if (nowAbs >= lateAbs - this._pointAdvance('late') || pct >= (Number(cfg.lateAt) || 85)) {
+                return [{ point: 'late' }];
+            }
         }
 
         // ── 5. 定期检查点位 ──
@@ -926,9 +948,10 @@ export class TimerEngine {
         // 事后补发一条「你已经到 21% 了」是荒谬的。
         if (points.mid) {
             const firedMids = new Set((ev.firedMids ?? []).map(Number));
+            const midLimit = nowAbs + this._pointAdvance('mid');
             let latest = null;
             for (const p of this._midPoints(ev)) {
-                if (p.abs > nowAbs) break;
+                if (p.abs > midLimit) break;
                 if (!firedMids.has(p.abs)) latest = p.abs;
             }
             // 和某个还没兑现的旧期限挤在同一天时不报定期检查 ——
