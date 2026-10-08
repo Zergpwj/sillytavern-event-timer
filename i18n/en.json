@@ -322,7 +322,7 @@
   "正则识别": "Regex recognition",
   "正在收集线索……": "Collecting clues…",
   "正在请求模型……": "Requesting the model…",
-  "每多久回头看一眼（从事件开始算起，固定不变）。填 0 = 不要定期检查；事件比这个间隔还短，就只在正中间看一次": "How often to look back in (fixed from the event start). 0 = no periodic checks; if the event is shorter than this interval you get a single check at the midpoint.",
+  "每多久回头看一眼（从事件开始算起，固定不变）。两格都填 0 = 不要定期检查；事件比这个间隔还短，就只在正中间看一次": "How often to look back (fixed, counted from the event start). Set both fields to 0 to disable periodic checks; if the event is shorter than this interval it only gets one check at the midpoint.",
   "每年月数": "Months per year",
   "每月天数": "Days per month",
   "每月耗银 50 两": "Costs 50 taels of silver per month",

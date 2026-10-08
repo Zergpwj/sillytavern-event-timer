@@ -367,10 +367,12 @@ export class SettingsUI {
                 ] : []),
             ] : []),
 
-            // 定期检查以前是「一个百分比位置」，现在改成「每 N 天一个点位」（见 checkEveryDays）
-            this.row('检查间隔', this.durationInput((Number(cfg.reminder.checkEveryDays) || 0) * 1440, (minutes) => {
-                app.updateConfig({ reminder: { checkEveryDays: Math.max(0, Number(minutes) || 0) / 1440 } });
-            }, '每多久回头看一眼（从事件开始算起，固定不变）。填 0 = 不要定期检查；事件比这个间隔还短，就只在正中间看一次')),
+            // 定期检查以前是「一个百分比位置」，后来改成「每 N 天一个点位」（见 checkEveryDays）。
+            // 输入框现在是「天 + 小时」两格 —— 原来那个「7天」文本框只认单一单位，
+            // 「1天12小时」会被静默忽略（详见 dayHourInput 的注释）。
+            this.row('检查间隔', this.dayHourInput(cfg.reminder.checkEveryDays, (days) => {
+                app.updateConfig({ reminder: { checkEveryDays: Math.max(0, Number(days) || 0) } });
+            }), '每多久回头看一眼（从事件开始算起，固定不变）。两格都填 0 = 不要定期检查；事件比这个间隔还短，就只在正中间看一次'),
             this.row('即将结束位置', h('div.st-timer-threshold', [
                 this.numberInput(cfg.reminder.lateAt, (v) => {
                     app.updateConfig({ reminder: { lateAt: Math.min(99, Math.max(2, Number(v) || 85)) } });
@@ -1051,6 +1053,55 @@ export class SettingsUI {
         num.addEventListener('change', push);
 
         return h('div.st-timer-threshold', [num, sel]);
+    }
+
+    /**
+     * 「天 + 小时」两个输入框 —— 检查间隔用它。
+     *
+     * 为什么换掉原来那个「7天」文本框：
+     *   1. 它的解析器**只认「一个数字 + 一个单位」**（`/^(数字)(单位)$/`），
+     *      所以「1天12小时」这种**复合写法会被静默忽略** —— 配置没变，
+     *      框里却还留着你打的字，你以为存上了。
+     *   2. 三个数字框不可能格式错，这个问题从构造上就没有了。
+     *
+     * ⚠️ **故意不放「月」**：这个插件的历法里一个月可能是 28/30/31 天，也可能是
+     * 自定义的「600 天一年、每月 30 天」—— 说「1 个月」没有确定长度。
+     * （底层解析器里 `月` 是被写死成 43200 分钟 = 30 天的，用在这里会骗人。）
+     * 要按月表达就自己换算成天填进来。
+     *
+     * 存进去的仍然是**天数**（可以带小数 ✗ `checkEveryDays`），所以配置格式没变、
+     * 不需要迁移 ✓。天和小时都填 0 = 关掉定期检查。
+     */
+    dayHourInput(days, onChange) {
+        const total = Math.max(0, Number(days) || 0);
+        const d = Math.floor(total);
+        // 用四舍五入到整小时：这个值本来就不需要分钟级精度，
+        // 而且界面上只给「天 / 小时」两个框，留小数反而让人以为能填分钟。
+        const hr = Math.round((total - d) * 24);
+
+        const makeNum = (value) => {
+            const el = h('input.st-timer-input.st-timer-input--num', { type: 'number', min: '0' });
+            el.value = String(value);
+            return el;
+        };
+        const dInput = makeNum(d);
+        const hInput = makeNum(hr);
+
+        const push = () => {
+            const nextDays = Math.max(0, Number(dInput.value) || 0);
+            const nextHours = Math.max(0, Number(hInput.value) || 0);
+            const next = nextDays + nextHours / 24;
+            if (next !== total) onChange(next);
+        };
+        dInput.addEventListener('change', push);
+        hInput.addEventListener('change', push);
+
+        return h('div.st-timer-threshold', [
+            dInput,
+            h('span.st-timer-threshold__suffix', '天'),
+            hInput,
+            h('span.st-timer-threshold__suffix', '小时'),
+        ]);
     }
 
     select(options, value, onChange) {
