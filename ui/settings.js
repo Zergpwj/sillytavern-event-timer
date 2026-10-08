@@ -394,12 +394,16 @@ export class SettingsUI {
             // ⚠️ 现在是**两套规律**：剧情时间 / 回合。谁先到算谁；各自填 0 = 关掉那一套；
             // 两套都关掉才等于没有定期检查。回合制解决的是「时间制密度随玩家节奏变」——
             // 快节奏时可能每轮都触发，慢节奏时几十轮才一次。
-            this.row('检查间隔', this.dayHourInput(cfg.reminder.checkEveryDays, (days) => {
+            this.row('检查间隔（时间）', this.dayHourInput(cfg.reminder.checkEveryDays, (days) => {
                 app.updateConfig({ reminder: { checkEveryDays: Math.max(0, Number(days) || 0) } });
             }), '【按剧情时间】每多久回头看一眼（从事件开始算起，固定不变）。两格都填 0 = 关掉这一套；事件比这个间隔还短，就只在正中间看一次'),
-            this.row('或每多少回合', this.numberInput(cfg.reminder.checkEveryTurns, (v) => {
-                app.updateConfig({ reminder: { checkEveryTurns: Math.max(0, Math.round(Number(v) || 0)) } });
-            }, '0'), '【按回合 / 楼层】每几个回合看一眼，从事件登记那一轮算起。填 0 = 关掉这一套。两套可以同时用，谁先到算谁'),
+            this.row('检查间隔（回合）', h('div.st-timer-threshold', [
+                h('span.st-timer-threshold__suffix', '每'),
+                this.numberInput(cfg.reminder.checkEveryTurns, (v) => {
+                    app.updateConfig({ reminder: { checkEveryTurns: Math.max(0, Math.round(Number(v) || 0)) } });
+                }, '0'),
+                h('span.st-timer-threshold__suffix', '回合'),
+            ]), '【按回合 / 楼层】每几个回合看一眼，从事件登记那一轮算起。填 0 = 关掉这一套。两套可以同时用，谁先到算谁'),
             this.row('即将结束位置', h('div.st-timer-threshold', [
                 this.numberInput(cfg.reminder.lateAt, (v) => {
                     app.updateConfig({ reminder: { lateAt: Math.min(99, Math.max(2, Number(v) || 85)) } });
