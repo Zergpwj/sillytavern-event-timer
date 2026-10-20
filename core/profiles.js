@@ -435,6 +435,29 @@ export function resolveProfileId(config, targetKey) {
  * @param {string} [name] 档案名（一般传角色卡名）
  * @returns {{ config: any, profile: any }|null} 已经有绑定、或没有 key 时返回 null
  */
+/**
+ * 把「全局键」从一份配置搬到另一份上。
+ *
+ * enabled / ui 不属于任何档案（见 PROFILE_EXCLUDED_KEYS），**但**每次
+ * 「拿档案重建配置」都必须把它们带过去 —— 因为重建是从 createDefaultConfig()
+ * 起步的，不带就会掉回默认值（enabled: true）。
+ *
+ * 这个坑踩过两次：
+ *   ① app.js 的 applyProfile（手动套用档案）
+ *   ② 本文件的 activateProfileFor（切角色卡 / 切对话时自动套用）
+ * 第 ② 条是「切对话之后又自己打开了」的真正原因 —— 只修 ① 不够。
+ */
+export function carryGlobalKeys(next, current) {
+    if (!next) return next;
+    next.enabled = current?.enabled;
+    next.ui = {
+        ...(current?.ui ?? {}),
+        // fabPos 是嵌套对象，浅拷贝会把两边的坐标搅在一起
+        fabPos: { ...(current?.ui?.fabPos ?? {}) },
+    };
+    return next;
+}
+
 export function createBoundProfile(config, key, name) {
     const store = normalizeProfileStore(config?.profiles);
     if (!key || store.bindings[key]) return null;
@@ -500,6 +523,9 @@ export function activateProfileFor(config, targetKey, opts = {}) {
     const source = store.items[wanted]?.config;
     const fresh = createDefaultConfig();
     const next = source ? mergeConfig(fresh, source) : mergeConfig(fresh, captureProfileConfig(config));
+
+    // enabled / ui 同理是全局的（见 carryGlobalKeys 的注释）
+    carryGlobalKeys(next, persisted);
 
     // 库和档案表本身是全局的，不能被快照覆盖
     next.prompts = persisted.prompts;

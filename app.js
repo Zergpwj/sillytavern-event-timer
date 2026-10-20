@@ -10,6 +10,7 @@ import { createDefaultConfig, mergeConfig, STATE_VERSION } from './core/default-
 import { DEFAULT_TAG_NAMES, extractTagBlocks } from './core/parser.js';
 import {
     activateProfileFor,
+    carryGlobalKeys,
     addPrompt,
     bindProfile,
     deleteProfile,
@@ -689,15 +690,8 @@ export class TimerApp {    /**
         const store2 = normalizeProfileStore(this.config.profiles);
         const source = id ? store2.items[id]?.config : store2.baseConfig;
         const next = mergeConfig(createDefaultConfig(), source ?? this.config);
-        /**
-         * ⚠️ enabled / ui 是**全局**的，不进档案（见 profiles.js 的 PROFILE_EXCLUDED_KEYS）。
-         *
-         * 但这里是从档案**重建**整个配置，不显式带过去的话，它们会掉回
-         * createDefaultConfig() 的默认值（enabled: true）—— 表现就是
-         * 「关掉计时器 → 切角色 → 又自己打开了」。
-         */
-        next.enabled = this.config.enabled;
-        next.ui = { ...(this.config.ui ?? {}), fabPos: { ...(this.config.ui?.fabPos ?? {}) } };
+        // enabled / ui 是全局的，重建配置时必须带过去（见 carryGlobalKeys 的注释）
+        carryGlobalKeys(next, this.config);
         next.prompts = this.config.prompts;
         next.profiles = { ...store2, activeId: id && store2.items[id] ? id : null };
         this.config = normalizeAppConfig(next);
