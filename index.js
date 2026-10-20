@@ -61,8 +61,23 @@ export async function boot() {
     await app.init();
 
     // ── 常驻悬浮按钮 + 面板 ──
+    //
+    // ⚠️ 不能无条件 mount。以前是直接 mount 的，于是「关掉插件 + 关掉悬浮按钮」
+    // 以后悬浮按钮还在 —— 那个勾选框实际上没关掉任何东西。
+    //
+    // 现在的规则：插件关掉 → 一律不出现；插件开着 → 才看「显示常驻悬浮按钮」。
+    // 配置一变就重新同步，所以勾选框和总开关都能立刻生效。
+    //
+    // 注意：**设置抽屉不跟着卸载** —— 否则关掉插件就再也点不到开关了。
     const floating = new FloatingUI(app);
-    floating.mount(document.body);
+    const syncFloating = () => {
+        const want = app.showFloating;
+        const mounted = !!floating.root;
+        if (want && !mounted) floating.mount(document.body);
+        else if (!want && mounted) floating.unmount();
+    };
+    syncFloating();
+    app.subscribe(syncFloating);
 
     // ── 设置抽屉 ──
     const settings = new SettingsUI(app);

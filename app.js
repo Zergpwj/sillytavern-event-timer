@@ -670,6 +670,16 @@ export class TimerApp {    /**
         return profile;
     }
 
+    /**
+     * 悬浮窗现在该不该出现。
+     *
+     * 规则（用户定的）：**插件关掉时一律不出现**；开着的时候才看「显示常驻悬浮按钮」。
+     * 也就是说那个勾选框只管「插件开启时的悬浮窗状态」，不能拿来对抗总开关。
+     */
+    get showFloating() {
+        return this.config.enabled !== false && this.config.ui?.showFab !== false;
+    }
+
     /** 手动套用某个档案 */
     applyProfile(id) {
         const store = normalizeProfileStore(this.config.profiles);
@@ -679,6 +689,15 @@ export class TimerApp {    /**
         const store2 = normalizeProfileStore(this.config.profiles);
         const source = id ? store2.items[id]?.config : store2.baseConfig;
         const next = mergeConfig(createDefaultConfig(), source ?? this.config);
+        /**
+         * ⚠️ enabled / ui 是**全局**的，不进档案（见 profiles.js 的 PROFILE_EXCLUDED_KEYS）。
+         *
+         * 但这里是从档案**重建**整个配置，不显式带过去的话，它们会掉回
+         * createDefaultConfig() 的默认值（enabled: true）—— 表现就是
+         * 「关掉计时器 → 切角色 → 又自己打开了」。
+         */
+        next.enabled = this.config.enabled;
+        next.ui = { ...(this.config.ui ?? {}), fabPos: { ...(this.config.ui?.fabPos ?? {}) } };
         next.prompts = this.config.prompts;
         next.profiles = { ...store2, activeId: id && store2.items[id] ? id : null };
         this.config = normalizeAppConfig(next);

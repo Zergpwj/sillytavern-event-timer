@@ -15,8 +15,20 @@ import { createDefaultConfig, mergeConfig } from './default-config.js';
 export const BUILTIN_PROMPT_ID = 'builtin-default';
 export const BUILTIN_PROMPT_NAME = '默认提示词';
 
-/** 档案快照里**不**包含的字段（否则会自我嵌套 / 丢库） */
-export const PROFILE_EXCLUDED_KEYS = ['profiles', 'prompts'];
+/**
+ * 档案快照里**不**包含的字段。
+ *
+ * - profiles / prompts：放进去会自我嵌套、丢库。
+ * - **enabled / ui**：这两个是**全局**的，不属于某张角色卡。
+ *
+ *   ⚠️ enabled 曾经在档案里，后果是「关掉计时器 → 切个对话 → 开关又自己亮了」：
+ *   切换档案时 updateConfig 会把 enabled 写进当前档案，换角色就换了一份 enabled。
+ *   用户明确要的是：关掉之后切角色卡、切对话都不该自动打开。
+ *
+ *   ui 同理 —— 悬浮按钮显示不显示、位置、主题，这些是「我这个人怎么用这个插件」，
+ *   不是「这个角色的事件计时器怎么配」。fabPos 要是每张卡一份，换个角色按钮就跳位置。
+ */
+export const PROFILE_EXCLUDED_KEYS = ['profiles', 'prompts', 'enabled', 'ui'];
 
 // ───────────────────────────── 提示词库 ─────────────────────────────
 
